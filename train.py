@@ -15,7 +15,7 @@ from src.nn.loss import (
     CrossEntropyLoss,
     TrainEgoPathRegressionLoss,
 )
-from src.nn.model import ClassificationNet, RegressionNet, SegmentationNet
+from src.nn.model import ClassificationNet, RegressionNet, SegmentationNet, RegressionNetWithLSTM
 from src.utils.common import set_seeds, set_worker_seeds, simple_logger, split_dataset
 from src.utils.dataset import PathsDataset
 from src.utils.evaluate import IoUEvaluator
@@ -56,9 +56,9 @@ def main(args):
     logger = simple_logger(__name__, "info")
     base_path = os.path.dirname(__file__)
 
-    with open(os.path.join(base_path, "configs", "global.yaml")) as f:
+    with open(os.path.join(base_path, "configs", "global.yaml"), encoding= "utf-8") as f:
         global_config = yaml.safe_load(f)
-    with open(os.path.join(base_path, "configs", f"{method}.yaml")) as f:
+    with open(os.path.join(base_path, "configs", f"{method}.yaml"), encoding= "utf-8") as f:
         method_config = yaml.safe_load(f)
     config = {
         **global_config,
@@ -119,15 +119,37 @@ def main(args):
         else None
     )
 
+    # if method == "regression":
+    #     model = RegressionNet(
+    #         backbone=config["backbone"],
+    #         input_shape=tuple(config["input_shape"]),
+    #         anchors=config["anchors"],
+    #         pool_channels=config["pool_channels"],
+    #         fc_hidden_size=config["fc_hidden_size"],
+    #         pretrained=config["pretrained"],
+    #     ).to(device)
     if method == "regression":
-        model = RegressionNet(
-            backbone=config["backbone"],
-            input_shape=tuple(config["input_shape"]),
-            anchors=config["anchors"],
-            pool_channels=config["pool_channels"],
-            fc_hidden_size=config["fc_hidden_size"],
-            pretrained=config["pretrained"],
-        ).to(device)
+        if config.get("use_lstm", False):  # 检查是否使用 LSTM
+            print(config["use_lstm"])
+            model = RegressionNetWithLSTM(
+                backbone=config["backbone"],
+                input_shape=tuple(config["input_shape"]),
+                anchors=config["anchors"],
+                pool_channels=config["pool_channels"],
+                fc_hidden_size=config["fc_hidden_size"],
+                lstm_hidden_size=config["lstm_hidden_size"],
+                lstm_num_layers=config["lstm_num_layers"],
+                pretrained=config["pretrained"],
+            ).to(device)
+        else:
+            model = RegressionNet(
+                backbone=config["backbone"],
+                input_shape=tuple(config["input_shape"]),
+                anchors=config["anchors"],
+                pool_channels=config["pool_channels"],
+                fc_hidden_size=config["fc_hidden_size"],
+                pretrained=config["pretrained"],
+            ).to(device)
     elif method == "classification":
         model = ClassificationNet(
             backbone=config["backbone"],
@@ -222,6 +244,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-    wandb.login()
+    wandb.login(key='fb8688472c81559eaa9821013722cf47aac8ceb1')
     args = parse_arguments()
     main(args)

@@ -1,18 +1,68 @@
-# requirements for basic usage
-numpy
-Pillow
-PyYAML
-torch
-torchvision
-
-# requirements for training
-wandb
-
-# requirements for video inference
-opencv-python
-
-# requirements for TensorRT usage
-onnx
-onnxruntime
-pycuda
-tensorrt
+annotated-types @ file:///home/conda/feedstock_root/build_artifacts/annotated-types_1733247046149/work
+appdirs @ file:///home/conda/feedstock_root/build_artifacts/appdirs_1733753955715/work
+Brotli @ file:///D:/bld/brotli-split_1725267609074/work
+certifi @ file:///home/conda/feedstock_root/build_artifacts/certifi_1734380492396/work/certifi
+cffi @ file:///D:/bld/cffi_1725560655177/work
+charset-normalizer @ file:///home/conda/feedstock_root/build_artifacts/charset-normalizer_1735929714516/work
+click @ file:///D:/bld/click_1734858834134/work
+colorama @ file:///home/conda/feedstock_root/build_artifacts/colorama_1733218098505/work
+coloredlogs @ file:///home/conda/feedstock_root/build_artifacts/coloredlogs_1733927977068/work
+docker-pycreds==0.4.0
+eval_type_backport @ file:///home/conda/feedstock_root/build_artifacts/eval_type_backport_1734857727836/work
+filelock @ file:///home/conda/feedstock_root/build_artifacts/filelock_1733240801289/work
+flatbuffers @ file:///home/conda/feedstock_root/build_artifacts/python-flatbuffers_1736586938832/work
+gitdb @ file:///home/conda/feedstock_root/build_artifacts/gitdb_1735887193964/work
+GitPython @ file:///home/conda/feedstock_root/build_artifacts/gitpython_1735929639977/work
+h2 @ file:///home/conda/feedstock_root/build_artifacts/h2_1733298745555/work
+hpack @ file:///home/conda/feedstock_root/build_artifacts/hpack_1733299205993/work
+humanfriendly @ file:///D:/bld/humanfriendly_1733927963288/work
+hyperframe @ file:///home/conda/feedstock_root/build_artifacts/hyperframe_1733298771451/work
+idna @ file:///home/conda/feedstock_root/build_artifacts/idna_1733211830134/work
+importlib_metadata @ file:///home/conda/feedstock_root/build_artifacts/importlib-metadata_1733223117029/work
+Jinja2 @ file:///home/conda/feedstock_root/build_artifacts/jinja2_1734823942230/work
+Mako @ file:///home/conda/feedstock_root/build_artifacts/mako_1733628147227/work
+MarkupSafe @ file:///D:/bld/markupsafe_1733219601796/work
+mkl-service==2.4.0
+mkl_fft @ file:///C:/Users/dev-admin/mkl/mkl_fft_1730823082242/work
+mkl_random @ file:///C:/Users/dev-admin/mkl/mkl_random_1730822522280/work
+mpmath @ file:///home/conda/feedstock_root/build_artifacts/mpmath_1733302684489/work
+networkx @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_networkx_1731521053/work
+numpy @ file:///C:/b/abs_c1ywpu18ar/croot/numpy_and_numpy_base_1708638681471/work/dist/numpy-1.26.4-cp312-cp312-win_amd64.whl#sha256=becc06674317799ad0165a939a7613809d0bee9bd328a1e4308c57c39cacf08c
+nvidia-cuda-runtime-cu12==12.6.77
+onnx @ file:///D:/bld/onnx_1735631879940/work
+onnxruntime @ file:///C:/bld/onnxruntime_1735444017667/work/build-ci/Release/dist/onnxruntime-1.20.1-cp312-cp312-win_amd64.whl#sha256=d712bf1d06c0a44c3c3c3873ad344b6cf4176a45b9255bf4b3b8abeb69109e9c
+opencv-python==4.11.0.86
+packaging @ file:///home/conda/feedstock_root/build_artifacts/packaging_1733203243479/work
+pillow @ file:///D:/bld/pillow_1735929729156/work
+platformdirs @ file:///home/conda/feedstock_root/build_artifacts/platformdirs_1733232627818/work
+protobuf @ file:///D:/bld/protobuf_1731365461711/work/bazel-bin/python/dist/protobuf-5.28.3-cp312-abi3-win_amd64.whl#sha256=df120a97cd02a854e358a1f7d9561590abcf54b293f7d0503742b2e1bc631729
+psutil @ file:///D:/bld/psutil_1735327342072/work
+pycparser @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_pycparser_1733195786/work
+pycuda @ file:///D:/bld/pycuda_1723933784023/work
+pydantic @ file:///home/conda/feedstock_root/build_artifacts/pydantic_1736458246045/work
+pydantic_core @ file:///D:/bld/pydantic-core_1734571389652/work
+pyreadline3 @ file:///D:/bld/pyreadline3_1731584368022/work
+PySocks @ file:///D:/bld/pysocks_1733217287171/work
+pytools @ file:///home/conda/feedstock_root/build_artifacts/pytools_1719695845496/work
+PyYAML @ file:///D:/bld/pyyaml_1725456271438/work
+requests @ file:///home/conda/feedstock_root/build_artifacts/requests_1733217035951/work
+sentry-sdk @ file:///home/conda/feedstock_root/build_artifacts/sentry-sdk_1736875341014/work
+setproctitle @ file:///D:/bld/setproctitle_1731921924534/work
+setuptools==75.8.0
+six @ file:///home/conda/feedstock_root/build_artifacts/six_1733380938961/work
+smmap @ file:///home/conda/feedstock_root/build_artifacts/smmap_1634310307496/work
+sympy @ file:///home/conda/feedstock_root/build_artifacts/sympy_1736248181614/work
+tensorrt==10.7.0
+tensorrt_cu12==10.7.0
+tensorrt_cu12_bindings==10.7.0
+tensorrt_cu12_libs==10.7.0
+torch==2.5.1
+torchaudio==2.5.1
+torchvision==0.20.1
+typing_extensions @ file:///home/conda/feedstock_root/build_artifacts/typing_extensions_1733188668063/work
+urllib3 @ file:///home/conda/feedstock_root/build_artifacts/urllib3_1734859416348/work
+wandb @ file:///D:/bld/wandb_1737145114024/work
+wheel==0.45.1
+win_inet_pton @ file:///D:/bld/win_inet_pton_1733130564612/work
+zipp @ file:///home/conda/feedstock_root/build_artifacts/zipp_1732827521216/work
+zstandard==0.23.0

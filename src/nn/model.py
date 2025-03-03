@@ -5,6 +5,90 @@ import torch.nn as nn
 from .backbone import EfficientNetBackbone, ResNetBackbone
 from .decoder import UNetDecoder
 
+import torch
+import math
+
+
+class RegressionNetWithLSTM(nn.Module):
+    def __init__(
+            self,
+            backbone,
+            input_shape,
+            anchors,
+            pool_channels,
+            fc_hidden_size,
+            lstm_hidden_size,
+            lstm_num_layers,
+            pretrained=False,
+    ):
+        """Initializes the train ego-path detection model for the regression method with LSTM.
+
+        Args:
+            backbone (str): Backbone to use in the model (e.g. "resnet18", "efficientnet-b3", etc.).
+            input_shape (tuple): Input shape (C, H, W).
+            anchors (int): Number of horizontal anchors in the input image where the path is regressed.
+            pool_channels (int): Number of output channels of the pooling layer.
+            fc_hidden_size (int): Number of units in the hidden layer of the fully connected part.
+            lstm_hidden_size (int): Number of hidden units in the LSTM.
+            lstm_num_layers (int): Number of layers in the LSTM.
+            pretrained (bool, optional): Whether to use pretrained weights for the backbone. Defaults to False.
+        """
+        super(RegressionNetWithLSTM, self).__init__()
+
+        # 选择骨干网络
+        if backbone.startswith("efficientnet"):
+            self.backbone = EfficientNetBackbone(
+                version=backbone[13:], pretrained=pretrained
+            )
+        elif backbone.startswith("resnet"):
+            self.backbone = ResNetBackbone(version=backbone[6:], pretrained=pretrained)
+        else:
+            raise NotImplementedError
+
+        # 池化层
+        self.pool = nn.Conv2d(
+            in_channels=self.backbone.out_channels[-1],
+            out_channels=pool_channels,
+            kernel_size=1,
+        )
+
+        # 计算 LSTM 输入的特征维度
+        self.feature_height = math.ceil(input_shape[1] / self.backbone.reduction_factor)
+        self.feature_width = math.ceil(input_shape[2] / self.backbone.reduction_factor)
+        self.lstm_input_size = pool_channels * self.feature_height
+
+        # LSTM 层
+        self.lstm = nn.LSTM(
+            input_size=self.lstm_input_size,
+            hidden_size=lstm_hidden_size,
+            num_layers=lstm_num_layers,
+            batch_first=True,
+        )
+
+        # 全连接层
+        self.fc = nn.Linear(lstm_hidden_size, anchors * 2 + 1)
+
+    def forward(self, x):
+        # 通过骨干网络提取特征
+        x = self.backbone(x)[0]  # 获取骨干网络的输出特征图
+
+        # 通过池化层调整通道数
+        x = self.pool(x)  # 输出形状: (batch_size, pool_channels, H', W')
+
+        # 将特征图转换为序列形式
+        batch_size, channels, height, width = x.size()
+        x = x.permute(0, 2, 3, 1)  # 将通道维度移到最后，形状: (batch_size, H', W', pool_channels)
+        x = x.reshape(batch_size, width, height * channels)  # 形状: (batch_size, W', H' * pool_channels)
+
+        # 通过 LSTM
+        lstm_out, _ = self.lstm(x)  # 输出形状: (batch_size, W', lstm_hidden_size)
+
+        # 取 LSTM 最后一个时间步的输出
+        lstm_last_out = lstm_out[:, -1, :]  # 形状: (batch_size, lstm_hidden_size)
+
+        # 通过全连接层得到最终输出
+        reg = self.fc(lstm_last_out)  # 形状: (batch_size, anchors * 2 + 1)
+        return reg
 
 class ClassificationNet(nn.Module):
     def __init__(

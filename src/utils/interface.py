@@ -7,7 +7,8 @@ import yaml
 from PIL import Image
 from torchvision.transforms import v2 as transforms
 
-from ..nn.model import ClassificationNet, RegressionNet, SegmentationNet
+#from ..nn.model import ClassificationNet, RegressionNet, SegmentationNet
+from ..nn.model import ClassificationNet,RegressionNet,SegmentationNet
 from .autocrop import Autocropper
 from .common import to_scaled_tensor
 from .postprocessing import (
@@ -99,7 +100,7 @@ class Detector:
         model.to(self.device).eval()
         model.load_state_dict(
             torch.load(
-                os.path.join(self.model_path, "best.pt"), map_location=self.device
+                os.path.join(self.model_path, "best.pt"), map_location=self.device, weights_only=True
             )
         )
         return model
