@@ -14,3 +14,4 @@ fc_hidden_size: 2048  # number of units in the hidden layer of the fully connect
 use_lstm: True  # 是否使用 LSTM
 lstm_hidden_size: 256  # LSTM 隐藏层大小
 lstm_num_layers: 2  # LSTM 层数
+sequence_length: 5  # LSTM 序列长度，表示每次处理多少帧

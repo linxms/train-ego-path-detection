@@ -1,5 +1,6 @@
 import argparse
 import os
+from collections import deque  # 添加这行
 
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
@@ -62,8 +63,27 @@ def parse_arguments():
         + [f"cuda:{x}" for x in range(torch.cuda.device_count())],
         help="Device to use ('cpu', 'cuda', 'cuda:x' or 'mps').",
     )
-
+    parser.add_argument(
+        "--sequence-length",
+        type=int,
+        default=10,
+        help="序列长度，用于LSTM模型的连续帧处理",
+    )
     return parser.parse_args()
+
+class SequenceDetector:
+    def __init__(self, detector, sequence_length):
+        self.detector = detector
+        self.sequence_length = sequence_length
+        self.frame_buffer = deque(maxlen=sequence_length)
+    
+    def process_frame(self, frame):
+        self.frame_buffer.append(frame)
+        if len(self.frame_buffer) < self.sequence_length:
+            # 如果帧数不够，复制当前帧填充
+            while len(self.frame_buffer) < self.sequence_length:
+                self.frame_buffer.append(frame)
+        return self.detector.detect(list(self.frame_buffer))
 
 
 def main(args):
@@ -83,6 +103,9 @@ def main(args):
         runtime="pytorch",
         device=args.device,
     )
+    
+    # 创建序列检测器
+    sequence_detector = SequenceDetector(detector, args.sequence_length)
 
     extension = os.path.splitext(args.input)[1]
     outname = f"{os.path.splitext(os.path.basename(args.input))[0]}_out{extension}"
@@ -98,7 +121,7 @@ def main(args):
         frame = Image.open(args.input)
         for _ in range(50 if crop_coords == "auto" else 1):
             crop = detector.get_crop_coords() if args.show_crop else None
-            res = detector.detect(frame)
+            res = sequence_detector.process_frame(frame)
         draw_egopath(frame, res, crop_coords=crop).save(output_path)
 
     elif extension in [".mp4", ".avi"]:
@@ -127,7 +150,7 @@ def main(args):
                 break
             frame = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             crop = detector.get_crop_coords() if args.show_crop else None
-            res = detector.detect(frame)
+            res = sequence_detector.process_frame(frame)
             vis = draw_egopath(frame, res, crop_coords=crop)
             vis = cv2.cvtColor(np.array(vis), cv2.COLOR_RGB2BGR)
             out.write(vis)

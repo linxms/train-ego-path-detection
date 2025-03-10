@@ -85,13 +85,24 @@ class Detector:
                 fc_hidden_size=self.config["fc_hidden_size"],
             )
         elif self.config["method"] == "regression":
-            model = RegressionNet(
-                backbone=self.config["backbone"],
-                input_shape=tuple(self.config["input_shape"]),
-                anchors=self.config["anchors"],
-                pool_channels=self.config["pool_channels"],
-                fc_hidden_size=self.config["fc_hidden_size"],
-            )
+            if self.config.get("use_lstm", False):  # 检查是否使用LSTM
+                model = RegressionNetWithLSTM(
+                    backbone=self.config["backbone"],
+                    input_shape=tuple(self.config["input_shape"]),
+                    anchors=self.config["anchors"],
+                    pool_channels=self.config["pool_channels"],
+                    fc_hidden_size=self.config["fc_hidden_size"],
+                    lstm_hidden_size=self.config["lstm_hidden_size"],
+                    lstm_num_layers=self.config["lstm_num_layers"],
+                )
+            else:
+                model = RegressionNet(
+                    backbone=self.config["backbone"],
+                    input_shape=tuple(self.config["input_shape"]),
+                    anchors=self.config["anchors"],
+                    pool_channels=self.config["pool_channels"],
+                    fc_hidden_size=self.config["fc_hidden_size"],
+                )
         elif self.config["method"] == "segmentation":
             model = SegmentationNet(
                 backbone=self.config["backbone"],
@@ -100,7 +111,9 @@ class Detector:
         model.to(self.device).eval()
         model.load_state_dict(
             torch.load(
-                os.path.join(self.model_path, "best.pt"), map_location=self.device, weights_only=True
+                os.path.join(self.model_path, "best.pt"), 
+                map_location=self.device,
+                weights_only=True
             )
         )
         return model
@@ -159,27 +172,39 @@ class Detector:
         self.cuda.memcpy_dtoh(pred, self.bindings[1])  # copy output to CPU
         return pred
 
-    def detect(self, img):
-        """Detects the train ego-path on an image using the model.
-
+    def detect(self, input_data):
+        """检测输入数据中的路径。
+    
         Args:
-            img (PIL.Image.Image): Input image on which detection is to be performed.
-
+            input_data: 单张图片(PIL.Image)或图片序列(list[PIL.Image])
+            
+    
         Returns:
-            list or PIL.Image.Image: Train ego-path detection result, whose type depends on the method used:
-                - Classification/Regression: List containing the left and right rails lists of rails point coordinates (x, y).
-                - Segmentation: PIL.Image.Image representing the binary mask of detected region.
-        """     
-        original_shape = img.size
-        crop_coords = self.get_crop_coords()
-        if crop_coords is not None:
-            xleft, ytop, xright, ybottom = crop_coords
-            img = img.crop((xleft, ytop, xright + 1, ybottom + 1))
-
+            检测结果
+        注： 如果输入的是单帧图片，则使用重复帧来进行预测
+        """
+        if isinstance(input_data, list):  # 处理图片序列
+            batch = []
+            for img in input_data:
+                if self.crop_coords is not None:
+                    if isinstance(self.crop_coords, tuple):
+                        xleft, ytop, xright, ybottom = self.crop_coords
+                        img = img.crop((xleft, ytop, xright + 1, ybottom + 1))
+                tensor = to_scaled_tensor(img).unsqueeze(0)
+                batch.append(tensor)
+            batch = torch.cat(batch, dim=0)
+        else:  # 处理单张图片
+            img = input_data
+            if self.crop_coords is not None:
+                if isinstance(self.crop_coords, tuple):
+                    xleft, ytop, xright, ybottom = self.crop_coords
+                    img = img.crop((xleft, ytop, xright + 1, ybottom + 1))
+            batch = to_scaled_tensor(img).unsqueeze(0)
+    
         if self.runtime == "pytorch":
-            pred = self.infer_model_pytorch(img)
+            pred = self.infer_model_pytorch(batch)
         elif self.runtime == "tensorrt":
-            pred = self.infer_model_tensorrt(img)
+            pred = self.infer_model_tensorrt(batch)
 
         if self.config["method"] == "classification":
             clf = pred.reshape(2, self.config["anchors"], self.config["classes"] + 1)

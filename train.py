@@ -3,12 +3,16 @@ import json
 import os
 import random
 
+from sympy.matrices.expressions.kronecker import validate
+
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
 
 import torch
 import wandb
 import yaml
+
+
 
 from src.nn.loss import (
     BinaryDiceLoss,
@@ -119,15 +123,6 @@ def main(args):
         else None
     )
 
-    # if method == "regression":
-    #     model = RegressionNet(
-    #         backbone=config["backbone"],
-    #         input_shape=tuple(config["input_shape"]),
-    #         anchors=config["anchors"],
-    #         pool_channels=config["pool_channels"],
-    #         fc_hidden_size=config["fc_hidden_size"],
-    #         pretrained=config["pretrained"],
-    #     ).to(device)
     if method == "regression":
         if config.get("use_lstm", False):  # 检查是否使用 LSTM
             print(config["use_lstm"])
@@ -168,10 +163,23 @@ def main(args):
         ).to(device)
     else:
         raise ValueError
-    try:
-        model = torch.compile(model)
-    except Exception as e:
-        print(f"torch.compile failed: {e}. Running model without compilation.")
+
+    # 模型优化(仅限Linux环境)
+    # try:
+    #     if torch.__version__ >= "2.0.0":  # 确保 PyTorch 版本支持 compile
+    #         model = torch.compile(
+    #             model,
+    #             mode='reduce-overhead',  # 使用较为保守的优化模式
+    #             fullgraph=False,  # 对于 LSTM 模型，设置为 False 可能更稳定
+    #             dynamic=True,  # 支持动态输入
+    #         )
+    #         print("Model successfully compiled")
+    # except Exception as e:
+    #     print(f"torch.compile failed: {e}. Running model without compilation.")
+
+    # if torch.cuda.device_count() > 1:
+    #     print(f"Using {torch.cuda.device_count()} GPUs")
+    #     model = torch.nn.DataParallel(model)
 
     wandb.init(
         project="train-ego-path-detection",
@@ -226,6 +234,10 @@ def main(args):
         logger=logger,
         val_iterations=config["val_iterations"],
     )
+    # if val_loader is not None:
+    #     val_loss, val_accuracy = validate(val_loader, model, criterion, device, logger)
+    #     logger.info(f"Validation loss: {val_loss}, validation accuracy: {val_accuracy:.2f}%")
+    #     wandb.log({"final_val_accuracy": val_accuracy})
 
     if len(test_indices) > 0:
         logger.info("\nEvaluating on test set...")
@@ -245,6 +257,7 @@ def main(args):
         test_iou = iou_evaluator.evaluate()
         logger.info(f"Test IoU: {test_iou:.5f}")
         wandb.log({"test_iou": test_iou})
+
 
 
 if __name__ == "__main__":
