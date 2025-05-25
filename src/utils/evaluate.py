@@ -57,7 +57,19 @@ class IoUEvaluator:
         # each test epoch is unique due to data augmentation, so we average multiple runs to get a stable result
         for _ in range(self.detector.config["test_iterations"]):
             for i in range(len(self.dataset)):
-                img, target = self.dataset[i]
+                if self.detector.config["method"] == "regression":
+                    img, path_gt, ylim_gt = self.dataset[i]
+                    # 生成target mask
+                    from src.utils.postprocessing import regression_to_rails, rails_to_mask
+                    rails = regression_to_rails(path_gt.numpy() if hasattr(path_gt, "numpy") else path_gt, ylim_gt.item() if hasattr(ylim_gt, "item") else ylim_gt)
+                    target = rails_to_mask(rails, img.size)
+                elif self.detector.config["method"] == "classification":
+                    img, path_gt = self.dataset[i]
+                    from src.utils.postprocessing import classifications_to_rails, rails_to_mask
+                    rails = classifications_to_rails(path_gt.numpy() if hasattr(path_gt, "numpy") else path_gt, self.detector.config["classes"])
+                    target = rails_to_mask(rails, img.size)
+                else:  # segmentation
+                    img, target = self.dataset[i]
                 pred = self.detector.detect(img)
                 if self.detector.config["method"] in ["classification", "regression"]:
                     pred = rails_to_mask(pred, img.size)

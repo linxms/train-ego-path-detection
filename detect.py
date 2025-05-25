@@ -80,9 +80,9 @@ class SequenceDetector:
     def process_frame(self, frame):
         self.frame_buffer.append(frame)
         if len(self.frame_buffer) < self.sequence_length:
-            # 如果帧数不够，复制当前帧填充
             while len(self.frame_buffer) < self.sequence_length:
                 self.frame_buffer.append(frame)
+        # 直接传递图片序列给detect方法
         return self.detector.detect(list(self.frame_buffer))
 
 

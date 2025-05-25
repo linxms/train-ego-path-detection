@@ -8,7 +8,7 @@ from PIL import Image
 from torchvision.transforms import v2 as transforms
 
 #from ..nn.model import ClassificationNet, RegressionNet, SegmentationNet
-from ..nn.model import ClassificationNet,RegressionNet,SegmentationNet
+from ..nn.model import ClassificationNet, RegressionNet, SegmentationNet, RegressionNetWithLSTM
 from .autocrop import Autocropper
 from .common import to_scaled_tensor
 from .postprocessing import (
@@ -173,17 +173,8 @@ class Detector:
         return pred
 
     def detect(self, input_data):
-        """检测输入数据中的路径。
-    
-        Args:
-            input_data: 单张图片(PIL.Image)或图片序列(list[PIL.Image])
-            
-    
-        Returns:
-            检测结果
-        注： 如果输入的是单帧图片，则使用重复帧来进行预测
-        """
         if isinstance(input_data, list):  # 处理图片序列
+            original_shape = input_data[0].size[::-1]
             batch = []
             for img in input_data:
                 if self.crop_coords is not None:
@@ -192,39 +183,43 @@ class Detector:
                         img = img.crop((xleft, ytop, xright + 1, ybottom + 1))
                 tensor = to_scaled_tensor(img).unsqueeze(0)
                 batch.append(tensor)
-            batch = torch.cat(batch, dim=0)
-        else:  # 处理单张图片
+            batch = torch.cat(batch, dim=0)  # [seq, C, H, W]
+            # 如果模型是LSTM，batch直接送入模型即可
+        else:
+            original_shape = input_data.size[::-1]
             img = input_data
             if self.crop_coords is not None:
                 if isinstance(self.crop_coords, tuple):
                     xleft, ytop, xright, ybottom = self.crop_coords
                     img = img.crop((xleft, ytop, xright + 1, ybottom + 1))
             batch = to_scaled_tensor(img).unsqueeze(0)
-    
         if self.runtime == "pytorch":
-            pred = self.infer_model_pytorch(batch)
+            with torch.no_grad():
+                pred = self.model(batch.to(self.device))
+            torch.cuda.empty_cache()
         elif self.runtime == "tensorrt":
             pred = self.infer_model_tensorrt(batch)
+            torch.cuda.empty_cache()
 
         if self.config["method"] == "classification":
             clf = pred.reshape(2, self.config["anchors"], self.config["classes"] + 1)
             clf = np.argmax(clf, axis=2)
             rails = classifications_to_rails(clf, self.config["classes"])
-            rails = scale_rails(rails, crop_coords, original_shape)
+            rails = scale_rails(rails, self.crop_coords, original_shape)  # 修改这里
             rails = np.round(rails).astype(int)
             res = rails.tolist()
         elif self.config["method"] == "regression":
             traj = pred[:, :-1].reshape(2, self.config["anchors"])
             ylim = 1 / (1 + np.exp(-pred[:, -1].item()))  # sigmoid
             rails = regression_to_rails(traj, ylim)
-            rails = scale_rails(rails, crop_coords, original_shape)
+            rails = scale_rails(rails, self.crop_coords, original_shape)  # 修改这里
             rails = np.round(rails).astype(int)
             res = rails.tolist()
         elif self.config["method"] == "segmentation":
             mask = pred.squeeze(0).squeeze(0)
             mask = (mask > 0).astype(np.uint8) * 255
             mask = Image.fromarray(mask)
-            res = scale_mask(mask, crop_coords, original_shape)
+            res = scale_mask(mask, self.crop_coords, original_shape)  # 修改这里
 
         if isinstance(self.crop_coords, Autocropper):
             self.crop_coords.update(original_shape, res)

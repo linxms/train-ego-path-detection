@@ -6,6 +6,7 @@ import torch
 from PIL import Image, ImageDraw, ImageOps
 from torch.utils.data import Dataset
 from torchvision.transforms import v2 as transforms
+import albumentations as A  # <-- Add this line
 
 from .common import to_scaled_tensor
 from .postprocessing import regression_to_rails
@@ -127,6 +128,28 @@ class PathsDataset(Dataset):
         rails_mask = self.generate_rails_mask(img.size, annotation)
         img, rails_mask = self.random_crop(img, rails_mask)
         img, rails_mask = self.random_flip_lr(img, rails_mask)
+        # 20%概率进行雨雾或遮挡增强
+        if np.random.rand() < 0.2:
+            img_np = np.array(img)
+            mask_np = np.array(rails_mask)
+            aug_type = np.random.choice(['rain', 'fog', 'dropout'])
+            if aug_type == 'rain':
+                img_np = A.RandomRain(p=1.0)(image=img_np)['image']
+                # 雨雾只增强图片，不增强mask
+            elif aug_type == 'fog':
+                img_np = A.RandomFog(p=1.0)(image=img_np)['image']
+            else:
+                # dropout时同步增强mask
+                augmented = A.CoarseDropout(
+                    num_holes_range=(1, 8),
+                    hole_height_range=(16, 32),
+                    hole_width_range=(16, 32),
+                    p=1.0
+                )(image=img_np, masks=[mask_np])
+                img_np = augmented['image']
+                mask_np = augmented['masks'][0]
+            img = Image.fromarray(img_np)
+            rails_mask = mask_np
         if self.to_tensor:
             img = self.to_tensor(img)
         if self.img_aug:

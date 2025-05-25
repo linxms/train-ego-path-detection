@@ -3,7 +3,7 @@ import torchvision.models as models
 
 
 class ResNetBackbone(nn.Module):
-    def __init__(self, version, out_levels=(5,), pretrained=False):
+    def __init__(self, version, out_levels=(5,), pretrained=False, out_feature_dim=128):
         """Initializes the ResNet backbone.
 
         Args:
@@ -49,7 +49,7 @@ class ResNetBackbone(nn.Module):
 
 
 class EfficientNetBackbone(nn.Module):
-    def __init__(self, version, out_levels=(8,), pretrained=False):
+    def __init__(self, version, out_levels=(8,), pretrained=False, out_feature_dim=128):
         """Initializes the EfficientNet backbone.
 
         Args:
@@ -78,11 +78,29 @@ class EfficientNetBackbone(nn.Module):
             self.out_channels.append(last_conv.out_channels)
         self.out_channels = tuple(self.out_channels)
         self.reduction_factor = 2**5
+        self.out_feature_dim = out_feature_dim
+        self.fc = nn.Linear(self.out_channels[-1], out_feature_dim)
 
     def forward(self, x):
-        features = [x] if self.out_levels[0] == 0 else []
-        for i, stage in enumerate(self.stages):
-            x = stage(x)
-            if i + 1 in self.out_levels:
-                features.append(x)
+        # 支持4D和5D输入
+        if x.dim() == 5:
+            B, E, C, H, W = x.shape
+            x = x.view(B * E, C, H, W)
+            for i, stage in enumerate(self.stages):
+                x = stage(x)
+            # 全局平均池化
+            x = nn.functional.adaptive_avg_pool2d(x, 1)  # [B*E, feature_dim, 1, 1]
+            x = x.view(B, E, -1)  # [B, E, feature_dim]
+            x = self.fc(x)  # [B, E, out_feature_dim]
+            return x
+        elif x.dim() == 4:
+            B, C, H, W = x.shape
+            for i, stage in enumerate(self.stages):
+                x = stage(x)
+            x = nn.functional.adaptive_avg_pool2d(x, 1)  # [B, feature_dim, 1, 1]
+            x = x.view(B, -1)  # [B, feature_dim]
+            x = self.fc(x)  # [B, out_feature_dim]
+            return x
+        else:
+            raise ValueError(f"EfficientNetBackbone only supports 4D or 5D input, got {x.dim()}D")
         return features

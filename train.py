@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import random
+import time
 
 from sympy.matrices.expressions.kronecker import validate
 
@@ -164,7 +165,7 @@ def main(args):
     else:
         raise ValueError
 
-    # 模型优化(仅限Linux环境)
+
     # try:
     #     if torch.__version__ >= "2.0.0":  # 确保 PyTorch 版本支持 compile
     #         model = torch.compile(
@@ -246,7 +247,8 @@ def main(args):
             annotations_path=config["annotations_path"],
             indices=test_indices,
             config=config,
-            method="segmentation",
+            method=method,  # 使用当前的method而不是固定为"segmentation"
+            to_tensor=False  # 这里改为False，保证img为PIL.Image
         )
         iou_evaluator = IoUEvaluator(
             dataset=test_dataset,
@@ -254,9 +256,14 @@ def main(args):
             runtime="pytorch",
             device=device,
         )
+        start_time = time.time()
         test_iou = iou_evaluator.evaluate()
+        end_time = time.time()
+        fps = len(test_dataset) / (end_time - start_time)
         logger.info(f"Test IoU: {test_iou:.5f}")
         wandb.log({"test_iou": test_iou})
+        logger.info(f"Test FPS: {fps:.2f}")
+        # wandb.log({"test_iou": test_iou, "test_fps": fps})
 
 
 

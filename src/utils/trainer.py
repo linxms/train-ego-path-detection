@@ -5,21 +5,26 @@ import torch
 
 import wandb
 
+from torch.cuda.amp import autocast, GradScaler
+
 
 def train_epoch(model, criterion, device, dataloader, optimizer):
     model.train()
     total_loss = 0
     num_batches = len(dataloader)
+    scaler = GradScaler()
     for data, *target in dataloader:
         data = data.to(device)
         target = (
             [t.to(device) for t in target] if len(target) > 1 else target[0].to(device)
         )
         model.zero_grad(set_to_none=True)
-        output = model(data)
-        loss = criterion(output, target)
-        loss.backward()
-        optimizer.step()
+        with autocast():
+            output = model(data)
+            loss = criterion(output, target)
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         total_loss += loss.item()
     return total_loss / num_batches
 

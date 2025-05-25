@@ -5,3 +5,5 @@ wandb/
 **/__pycache__
 **/.DS_Store
 .vscode/
+data/data1.jpg
+*.jpg

@@ -59,7 +59,7 @@ class RegressionNetWithLSTM(nn.Module):
 
         # LSTM 层
         self.lstm = nn.LSTM(
-            input_size=self.lstm_input_size,
+            input_size=pool_channels,  # 只用pool_channels
             hidden_size=lstm_hidden_size,
             num_layers=lstm_num_layers,
             batch_first=True,
@@ -69,25 +69,21 @@ class RegressionNetWithLSTM(nn.Module):
         self.fc = nn.Linear(lstm_hidden_size, anchors * 2 + 1)
 
     def forward(self, x):
-        # 通过骨干网络提取特征
-        x = self.backbone(x)[0]  # 获取骨干网络的输出特征图
-
-        # 通过池化层调整通道数
-        x = self.pool(x)  # 输出形状: (batch_size, pool_channels, H', W')
-
-        # 将特征图转换为序列形式
-        batch_size, channels, height, width = x.size()
-        x = x.permute(0, 2, 3, 1)  # 将通道维度移到最后，形状: (batch_size, H', W', pool_channels)
-        x = x.reshape(batch_size, width, height * channels)  # 形状: (batch_size, W', H' * pool_channels)
-
-        # 通过 LSTM
-        lstm_out, _ = self.lstm(x)  # 输出形状: (batch_size, W', lstm_hidden_size)
-
-        # 取 LSTM 最后一个时间步的输出
-        lstm_last_out = lstm_out[:, -1, :]  # 形状: (batch_size, lstm_hidden_size)
-
-        # 通过全连接层得到最终输出
-        reg = self.fc(lstm_last_out)  # 形状: (batch_size, anchors * 2 + 1)
+        x = self.backbone(x)
+        if isinstance(x, list):
+            x = x[-1]
+        if x.dim() == 4:
+            x = self.pool(x)
+            x = x.flatten(2).transpose(1, 2)
+        elif x.dim() == 2:
+            x = x.unsqueeze(1)
+        elif x.dim() == 3:
+            pass
+        else:
+            raise ValueError(f"Unexpected backbone output shape: {x.shape}")
+        lstm_out, _ = self.lstm(x)
+        lstm_last_out = lstm_out[:, -1, :]
+        reg = self.fc(lstm_last_out)
         return reg
 
 class ClassificationNet(nn.Module):
@@ -190,7 +186,22 @@ class RegressionNet(nn.Module):
         )
 
     def forward(self, x):
-        x = self.backbone(x)[0]
+        # x = self.backbone(x)[0]
+        # 适应5D输入
+        B, E, C, H, W = x.shape
+        features = self.backbone(x)  # backbone已经处理了5D输入
+        
+        # 根据任务类型处理特征
+        if isinstance(self, RegressionNetWithLSTM):
+            # LSTM处理
+            features = features.permute(0, 2, 1, 3, 4)  # 调整维度顺序以适应LSTM
+        elif isinstance(self, SegmentationNet):
+            # 分割任务处理
+            features = features.view(-1, self.decoder_channels[0], H//32, W//32)
+        else:
+            # 分类或普通回归任务处理
+            features = features.view(B, -1)
+            
         fea = self.pool(x).flatten(start_dim=1)
         reg = self.fc(fea)
         return reg
